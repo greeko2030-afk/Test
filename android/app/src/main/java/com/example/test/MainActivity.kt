@@ -13,8 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -24,9 +27,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.socket.client.IO
@@ -55,7 +58,6 @@ fun RelayApp() {
     var selectedRole by remember { mutableStateOf("source") }
     var status by remember { mutableStateOf("Disconnected") }
     var logText by remember { mutableStateOf("Ready to connect.\n") }
-    val context = LocalContext.current
     var socket by remember { mutableStateOf<Socket?>(null) }
 
     fun appendLog(text: String) {
@@ -71,6 +73,7 @@ fun RelayApp() {
             val ioOptions = IO.Options().apply {
                 transports = arrayOf("websocket")
                 reconnection = true
+                timeout = 10000
             }
 
             socket = IO.socket(serverUrl, ioOptions)
@@ -78,7 +81,6 @@ fun RelayApp() {
             socket?.on(Socket.EVENT_CONNECT) {
                 status = "Connected as $role"
                 appendLog("Connected: ${socket?.id()}")
-
                 if (role == "source") {
                     socket?.emit("registerSource")
                 } else {
@@ -97,10 +99,13 @@ fun RelayApp() {
                 val payload = args.firstOrNull() as? JSONObject
                 val from = payload?.optString("from") ?: "unknown"
                 appendLog("Relay request from $from")
-                socket?.emit("acceptRelay", JSONObject().apply {
-                    put("sourceId", socket?.id())
-                    put("clientId", from)
-                })
+                socket?.emit(
+                    "acceptRelay",
+                    JSONObject().apply {
+                        put("sourceId", socket?.id())
+                        put("clientId", from)
+                    }
+                )
             }
 
             socket?.on("data") { args ->
@@ -123,7 +128,8 @@ fun RelayApp() {
             }
 
             socket?.on(Socket.EVENT_CONNECT_ERROR) { args ->
-                appendLog("Connection error: ${args.firstOrNull()}")
+                val error = args.firstOrNull()?.toString() ?: "Unknown error"
+                appendLog("Connection error: $error")
                 status = "Connection error"
             }
 
@@ -141,11 +147,28 @@ fun RelayApp() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = "Test Relay App",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF111827))
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = "Test Relay App",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    text = "Prototype demo for source/client internet relay",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFFC7D2FE)
+                )
+            }
+        }
 
         Text(text = "Server URL")
         OutlinedTextField(
@@ -167,7 +190,7 @@ fun RelayApp() {
                 },
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Connect as Source")
+                Text("Source")
             }
 
             Button(
@@ -177,12 +200,25 @@ fun RelayApp() {
                 },
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Connect as Client")
+                Text("Client")
             }
         }
 
-        Text(text = "Current role: $selectedRole")
-        Text(text = "Status: $status")
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(text = "Role: $selectedRole", fontWeight = FontWeight.SemiBold)
+                Text(text = "Status: $status")
+            }
+        }
 
         Button(
             onClick = {
@@ -192,19 +228,18 @@ fun RelayApp() {
                         "sendData",
                         JSONObject().apply {
                             put("target", target)
-                            put("data", "Test packet from ${selectedRole}")
+                            put("data", "Test packet from $selectedRole")
                         }
                     )
                     appendLog("Sent test packet to self")
                 } else {
                     appendLog("No active connection")
                 }
-            }
+            },
+            modifier = Modifier.align(Alignment.Start)
         ) {
             Text("Send test packet")
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
 
         Text(
             text = "Log",
@@ -215,7 +250,7 @@ fun RelayApp() {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
+                .height(260.dp)
                 .verticalScroll(rememberScrollState())
                 .background(Color(0xFF101828))
                 .padding(12.dp),
