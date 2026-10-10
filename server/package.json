@@ -1,0 +1,13 @@
+{
+  "name": "test-relay-server",
+  "version": "1.0.0",
+  "description": "Simple relay server for a demo internet-sharing app",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.8.1"
+  }
+}
